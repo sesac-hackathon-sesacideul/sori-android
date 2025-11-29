@@ -179,7 +179,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun addConversationItem(text: String) {
-        val finalAvgRms = if (rmsSampleCount > 0) avgRmsDb / rmsSampleCount else 0f
         val emotionLabel = analyzeComplexEmotion(text, currentVoiceLabel, maxRmsDb)
         val emotionEmoji = when (emotionLabel) {
             "긍정" -> "😃"
@@ -187,15 +186,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             else -> "😐"
         }
         
-        // DEBUG: Show Min ~ Max (Avg)
-        val debugLabel = "$emotionLabel (Min:${String.format("%.1f", minRmsDb)}~Max:${String.format("%.1f", maxRmsDb)}, Avg:${String.format("%.1f", finalAvgRms)})"
-        
         val newItem = ConversationItem(
             id = System.currentTimeMillis(),
             speaker = "상대방",
             text = text,
             emotion = emotionEmoji,
-            emotionLabel = debugLabel,
+            emotionLabel = emotionLabel,
             isUser = false,
             timestamp = java.text.SimpleDateFormat("a h:mm", java.util.Locale.KOREA).format(java.util.Date())
         )
@@ -210,8 +206,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (voiceLabel in listOf("Yell", "Shout", "Screaming", "Cry", "Sob")) return "부정"
 
         // 2. Volume Analysis (RMS)
-        // Heuristic: If volume is high (> 10.0), consider it negative unless text is explicitly positive.
-        if (rmsDb > 10.0f) { 
+        // Heuristic: If volume is high (> 7.0), consider it negative unless text is explicitly positive.
+        // Adjusted to 7.0f based on user data (Soft: ~5.6, Shouted: ~8.3).
+        if (rmsDb > 7.0f) { 
             if (!isTextPositive(text)) return "부정"
         }
 
@@ -225,7 +222,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun analyzeTextEmotion(text: String): String {
         return when {
-            text.contains("화나") || text.contains("짜증") || text.contains("미워") -> "부정"
+            text.contains("화나") || text.contains("짜증") || text.contains("미워") || 
+            text.contains("바보") || text.contains("멍청이") -> "부정"
             isTextPositive(text) -> "긍정"
             else -> "중립"
         }
