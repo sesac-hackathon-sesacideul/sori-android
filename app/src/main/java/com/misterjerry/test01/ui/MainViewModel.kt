@@ -90,6 +90,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Store for emotion analysis
                 currentVoiceLabel = label
                 
+                // TEST: If SpeechRecognizer is off, trigger conversation item for emotions
+                if (label in listOf("Laughter", "Giggle", "Chuckle", "Yell", "Shout", "Screaming")) {
+                     addConversationItem("(AI 감지: $label)")
+                }
+
                 // Also handle as SoundEvent if it's an environmental sound
                 handleSoundClassification(label) 
             }
@@ -116,16 +121,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun startListening() {
         viewModelScope.launch(Dispatchers.Main) {
             _isListening.value = true
-            speechRecognizer.startListening(recognitionIntent)
-            // Note: We cannot run AudioClassifier simultaneously with SpeechRecognizer due to mic conflict.
-            // We will rely on RMS (Volume) for voice emotion detection.
+            // speechRecognizer.startListening(recognitionIntent) // Disabled for testing
+            
+            // Enable AI Sound Analysis (YAMNet)
+            audioClassifierHelper.startAudioClassification()
         }
     }
 
     fun stopListening() {
         viewModelScope.launch(Dispatchers.Main) {
             _isListening.value = false
-            speechRecognizer.stopListening()
+            // speechRecognizer.stopListening() // Disabled for testing
+            audioClassifierHelper.stopAudioClassification()
         }
     }
 
