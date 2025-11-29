@@ -179,12 +179,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             else -> "😐"
         }
         
+        // DEBUG: Show RMS value to help tuning
+        val debugLabel = "$emotionLabel (${String.format("%.1f", currentRmsDb)})"
+        
         val newItem = ConversationItem(
             id = System.currentTimeMillis(),
             speaker = "상대방",
             text = text,
             emotion = emotionEmoji,
-            emotionLabel = emotionLabel,
+            emotionLabel = debugLabel,
             isUser = false,
             timestamp = java.text.SimpleDateFormat("a h:mm", java.util.Locale.KOREA).format(java.util.Date())
         )
@@ -199,9 +202,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (voiceLabel in listOf("Yell", "Shout", "Screaming", "Cry", "Sob")) return "부정"
 
         // 2. Volume Analysis (RMS)
-        // Heuristic: If volume is high (> 12.0), consider it negative unless text is explicitly positive.
-        // Increased threshold to 12.0f to avoid false positives.
-        if (rmsDb > 12.0f) { 
+        // Heuristic: If volume is high (> 10.0), consider it negative unless text is explicitly positive.
+        // Adjusted to 10.0f based on user feedback (8.0 too sensitive, 12.0 too insensitive).
+        if (rmsDb > 10.0f) { 
             if (!isTextPositive(text)) return "부정"
         }
 
