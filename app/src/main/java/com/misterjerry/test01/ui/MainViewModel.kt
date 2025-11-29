@@ -37,28 +37,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val speechRecognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(application)
     private val audioClassifierHelper = AudioClassifierHelper(application)
 
-    // Variables for Voice Emotion Analysis
-    private var currentRmsDb: Float = 0f
-    private var currentVoiceLabel: String = ""
-
     private val recognitionIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
     }
 
+    // Variables for Voice Emotion Analysis
+    private var minRmsDb: Float = 100f
+    private var maxRmsDb: Float = -100f
+    private var avgRmsDb: Float = 0f
+    private var rmsSampleCount: Int = 0
+    private var currentVoiceLabel: String = ""
+
     init {
-        // Initialize SpeechRecognizer Listener
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {}
             override fun onBeginningOfSpeech() {
                 currentVoiceLabel = "" // Reset label
+                minRmsDb = 100f
+                maxRmsDb = -100f
+                avgRmsDb = 0f
+                rmsSampleCount = 0
             }
             override fun onRmsChanged(rmsdB: Float) {
-                // Keep track of the maximum volume during speech
-                if (rmsdB > currentRmsDb) {
-                    currentRmsDb = rmsdB
-                }
+                // Track stats
+                if (rmsdB < minRmsDb) minRmsDb = rmsdB
+                if (rmsdB > maxRmsDb) maxRmsDb = rmsdB
+                
+                avgRmsDb += rmsdB
+                rmsSampleCount++
             }
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {
@@ -76,8 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val text = matches[0]
                     addConversationItem(text)
                 }
-                // Reset for next turn
-                currentRmsDb = 0f
+                // Reset is handled in onBeginningOfSpeech, but good to reset here too just in case
             }
 
             override fun onPartialResults(partialResults: Bundle?) {}
@@ -172,15 +179,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun addConversationItem(text: String) {
-        val emotionLabel = analyzeComplexEmotion(text, currentVoiceLabel, currentRmsDb)
+        val finalAvgRms = if (rmsSampleCount > 0) avgRmsDb / rmsSampleCount else 0f
+        val emotionLabel = analyzeComplexEmotion(text, currentVoiceLabel, maxRmsDb)
         val emotionEmoji = when (emotionLabel) {
             "긍정" -> "😃"
             "부정" -> "😠"
             else -> "😐"
         }
         
-        // DEBUG: Show RMS value to help tuning
-        val debugLabel = "$emotionLabel (${String.format("%.1f", currentRmsDb)})"
+        // DEBUG: Show Min ~ Max (Avg)
+        val debugLabel = "$emotionLabel (Min:${String.format("%.1f", minRmsDb)}~Max:${String.format("%.1f", maxRmsDb)}, Avg:${String.format("%.1f", finalAvgRms)})"
         
         val newItem = ConversationItem(
             id = System.currentTimeMillis(),
@@ -203,7 +211,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // 2. Volume Analysis (RMS)
         // Heuristic: If volume is high (> 10.0), consider it negative unless text is explicitly positive.
-        // Adjusted to 10.0f based on user feedback (8.0 too sensitive, 12.0 too insensitive).
         if (rmsDb > 10.0f) { 
             if (!isTextPositive(text)) return "부정"
         }
