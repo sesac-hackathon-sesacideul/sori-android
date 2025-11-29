@@ -28,75 +28,18 @@ data class MainUiState(
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    private val soundRepository = SoundRepository()
-    // Remove ConversationRepository as we will generate real data
-    // private val conversationRepository = ConversationRepository()
-
+    // private val soundRepository = SoundRepository() // Not used anymore
+    
     private val _conversationHistory = MutableStateFlow<List<ConversationItem>>(emptyList())
     private val _isListening = MutableStateFlow(false)
+    private val _soundEventsFlow = MutableStateFlow<List<SoundEvent>>(emptyList())
 
     private val speechRecognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(application)
     private val audioClassifierHelper = AudioClassifierHelper(application)
 
-    init {
-        // ... (SpeechRecognizer init code remains same) ...
-        
-        // Listen to audio classification results
-        viewModelScope.launch {
-            audioClassifierHelper.classificationFlow.collect { label ->
-                handleSoundClassification(label)
-            }
-        }
-    }
-
-    // ... (SpeechRecognizer methods remain same) ...
-
-    fun startEnvironmentMode() {
-        audioClassifierHelper.startAudioClassification()
-    }
-
-    fun stopEnvironmentMode() {
-        audioClassifierHelper.stopAudioClassification()
-    }
-
-    private fun handleSoundClassification(label: String) {
-        val (koreanLabel, urgency) = when (label) {
-            "Clapping", "Hands" -> "박수 소리" to Urgency.LOW
-            "Knock" -> "노크 소리" to Urgency.LOW
-            "Finger snapping" -> "핑거 스냅" to Urgency.LOW
-            "Siren", "Ambulance (siren)", "Fire engine, fire truck (siren)" -> "사이렌" to Urgency.HIGH
-            "Car horn, honking" -> "자동차 경적" to Urgency.HIGH
-            "Dog", "Bark" -> "개 짖는 소리" to Urgency.MEDIUM
-            "Baby cry, infant cry" -> "아기 울음소리" to Urgency.HIGH
-            "Speech" -> "말소리" to Urgency.LOW
-            else -> return // Ignore other sounds for now
-        }
-
-        val newEvent = SoundEvent(
-            id = System.currentTimeMillis(),
-            name = koreanLabel,
-            direction = (0..360).random().toFloat(), // Random direction for demo as we can't detect it with single mic
-            distance = (1..10).random().toFloat(), // Random distance for demo
-            urgency = urgency
-        )
-
-        // Update sound events list (keep last 5)
-        val currentEvents = uiState.value.soundEvents
-        val updatedEvents = (listOf(newEvent) + currentEvents).take(5)
-        
-        // We need to update the state. Since uiState is a combine of flows, we need a way to emit this.
-        // The current architecture uses SoundRepository. Let's modify SoundRepository or just use a MutableStateFlow for sounds in VM.
-        // For simplicity in this refactor, let's override the sound list in the UI state directly or add a local flow.
-        // Wait, uiState is derived from soundRepository.getSoundEvents().
-        // I should update SoundRepository to accept new events or mock it here.
-        // Let's add a method to SoundRepository to add an event? No, it's a mock repo.
-        // Let's change the logic: MainViewModel should manage the source of truth for sounds now.
-        
-        _soundEventsFlow.value = updatedEvents
-    }
-
-    // We need to replace the repository flow with a local flow
-    private val _soundEventsFlow = MutableStateFlow<List<SoundEvent>>(emptyList())
+    // Variables for Voice Emotion Analysis
+    private var currentRmsDb: Float = 0f
+    private var currentVoiceLabel: String = ""
 
     private val recognitionIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -105,10 +48,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        // Initialize SpeechRecognizer Listener
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBeginningOfSpeech() {
+                currentVoiceLabel = "" // Reset label
+            }
+            override fun onRmsChanged(rmsdB: Float) {
+                // Keep track of the maximum volume during speech
+                if (rmsdB > currentRmsDb) {
+                    currentRmsDb = rmsdB
+                }
+            }
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {
                 _isListening.value = false
@@ -125,11 +76,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val text = matches[0]
                     addConversationItem(text)
                 }
+                // Reset for next turn
+                currentRmsDb = 0f
             }
 
             override fun onPartialResults(partialResults: Bundle?) {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
+        
+        // Listen to audio classification results (YAMNet)
+        viewModelScope.launch {
+            audioClassifierHelper.classificationFlow.collect { label ->
+                // Store for emotion analysis
+                currentVoiceLabel = label
+                
+                // Also handle as SoundEvent if it's an environmental sound
+                handleSoundClassification(label) 
+            }
+        }
     }
 
     val uiState: StateFlow<MainUiState> = combine(
@@ -148,10 +112,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = MainUiState()
     )
 
+    // --- Voice Recognition Control ---
     fun startListening() {
         viewModelScope.launch(Dispatchers.Main) {
             _isListening.value = true
             speechRecognizer.startListening(recognitionIntent)
+            // Also start AudioClassifier to detect tone/emotion (Yell/Laughter)
+            audioClassifierHelper.startAudioClassification()
         }
     }
 
@@ -159,11 +126,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.Main) {
             _isListening.value = false
             speechRecognizer.stopListening()
+            audioClassifierHelper.stopAudioClassification()
         }
     }
 
+    // --- Environmental Sound Mode Control ---
+    fun startEnvironmentMode() {
+        audioClassifierHelper.startAudioClassification()
+    }
+
+    fun stopEnvironmentMode() {
+        audioClassifierHelper.stopAudioClassification()
+    }
+
+    // --- Logic ---
+
+    private fun handleSoundClassification(label: String) {
+        // If we are listening for speech, we might want to ignore some sounds or treat them as emotion.
+        // But for now, let's just log everything to the sound list as well.
+        
+        val (koreanLabel, urgency) = when (label) {
+            "Clapping", "Hands" -> "박수 소리" to Urgency.LOW
+            "Knock" -> "노크 소리" to Urgency.LOW
+            "Finger snapping" -> "핑거 스냅" to Urgency.LOW
+            "Siren", "Ambulance (siren)", "Fire engine, fire truck (siren)" -> "사이렌" to Urgency.HIGH
+            "Car horn, honking" -> "자동차 경적" to Urgency.HIGH
+            "Dog", "Bark" -> "개 짖는 소리" to Urgency.MEDIUM
+            "Baby cry, infant cry" -> "아기 울음소리" to Urgency.HIGH
+            "Speech" -> "말소리" to Urgency.LOW
+            else -> return // Ignore other sounds
+        }
+
+        val newEvent = SoundEvent(
+            id = System.currentTimeMillis(),
+            name = koreanLabel,
+            direction = (0..360).random().toFloat(),
+            distance = (1..10).random().toFloat(),
+            urgency = urgency
+        )
+
+        val currentEvents = _soundEventsFlow.value
+        val updatedEvents = (listOf(newEvent) + currentEvents).take(5)
+        _soundEventsFlow.value = updatedEvents
+    }
+
     private fun addConversationItem(text: String) {
-        val emotionLabel = analyzeEmotion(text)
+        val emotionLabel = analyzeComplexEmotion(text, currentVoiceLabel, currentRmsDb)
         val emotionEmoji = when (emotionLabel) {
             "긍정" -> "😃"
             "부정" -> "😠"
@@ -184,10 +192,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _conversationHistory.value = currentHistory + newItem
     }
 
-    private fun analyzeEmotion(text: String): String {
+    private fun analyzeComplexEmotion(text: String, voiceLabel: String, rmsDb: Float): String {
+        // 1. Voice Class Analysis (YAMNet)
+        if (voiceLabel in listOf("Laughter", "Giggle", "Chuckle")) return "긍정"
+        if (voiceLabel in listOf("Yell", "Shout", "Screaming", "Cry", "Sob")) return "부정"
+
+        // 2. Volume Analysis (RMS)
+        // Heuristic: If volume is high (> 8.0), consider it negative unless text is explicitly positive.
+        if (rmsDb > 8.0f) { 
+            if (!isTextPositive(text)) return "부정"
+        }
+
+        // 3. Text Analysis (Fallback)
+        return analyzeTextEmotion(text)
+    }
+
+    private fun isTextPositive(text: String): Boolean {
+        return text.contains("행복") || text.contains("좋아") || text.contains("사랑") || text.contains("감사")
+    }
+
+    private fun analyzeTextEmotion(text: String): String {
         return when {
-            text.contains("화나") || text.contains("짜증") -> "부정"
-            text.contains("행복") || text.contains("좋아") || text.contains("사랑") -> "긍정"
+            text.contains("화나") || text.contains("짜증") || text.contains("미워") -> "부정"
+            isTextPositive(text) -> "긍정"
             else -> "중립"
         }
     }
@@ -195,5 +222,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         speechRecognizer.destroy()
+        // audioClassifierHelper.stopAudioClassification() // Already handled in stop methods usually, but good practice to clear
     }
 }
