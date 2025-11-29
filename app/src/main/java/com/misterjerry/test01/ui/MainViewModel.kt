@@ -67,7 +67,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             override fun onError(error: Int) {
                 _isListening.value = false
-                // Handle error if needed
+                android.util.Log.e("MainViewModel", "SpeechRecognizer Error: $error")
             }
 
             override fun onResults(results: Bundle?) {
@@ -117,8 +117,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.Main) {
             _isListening.value = true
             speechRecognizer.startListening(recognitionIntent)
-            // Also start AudioClassifier to detect tone/emotion (Yell/Laughter)
-            audioClassifierHelper.startAudioClassification()
+            // Note: We cannot run AudioClassifier simultaneously with SpeechRecognizer due to mic conflict.
+            // We will rely on RMS (Volume) for voice emotion detection.
         }
     }
 
@@ -126,7 +126,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.Main) {
             _isListening.value = false
             speechRecognizer.stopListening()
-            audioClassifierHelper.stopAudioClassification()
         }
     }
 
