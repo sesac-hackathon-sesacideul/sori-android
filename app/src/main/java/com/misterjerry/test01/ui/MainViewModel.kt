@@ -199,8 +199,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (voiceLabel in listOf("Yell", "Shout", "Screaming", "Cry", "Sob")) return "부정"
 
         // 2. Volume Analysis (RMS)
-        // Heuristic: If volume is high (> 8.0), consider it negative unless text is explicitly positive.
-        if (rmsDb > 8.0f) { 
+        // Heuristic: If volume is high (> 12.0), consider it negative unless text is explicitly positive.
+        // Increased threshold to 12.0f to avoid false positives.
+        if (rmsDb > 12.0f) { 
             if (!isTextPositive(text)) return "부정"
         }
 
