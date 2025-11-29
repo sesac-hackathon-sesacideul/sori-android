@@ -1,5 +1,10 @@
 package com.misterjerry.test01.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import com.misterjerry.test01.R
+import com.misterjerry.test01.ui.theme.TenadaFontFamily
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -34,6 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.misterjerry.test01.data.SoundEvent
 import com.misterjerry.test01.data.Urgency
 import com.misterjerry.test01.ui.theme.ErrorColor
+import com.misterjerry.test01.ui.theme.LightTextPrimary
 import com.misterjerry.test01.ui.theme.SafeColor
 import com.misterjerry.test01.ui.theme.SurfaceColor
 import com.misterjerry.test01.ui.theme.TextSecondary
@@ -44,27 +50,73 @@ fun EnvironmentalSoundScreen(viewModel: MainViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        SafetySection(soundEvents = uiState.soundEvents)
+        // Header
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(110.dp)
+                .background(Color(0x1AF63030)), // Light Red
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.icon_environment_sound_mode),
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = Color.Unspecified
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "환경 소리 모드",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontFamily = TenadaFontFamily),
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            }
+        }
+
+        // Content
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp)
+        ) {
+            // Radar View
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                RadarView(
+                    soundEvents = uiState.soundEvents,
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .padding(bottom = 24.dp)
+                )
+            }
+
+            SafetySection(soundEvents = uiState.soundEvents)
+        }
     }
 }
 
 @Composable
 fun SafetySection(soundEvents: List<SoundEvent>) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = SurfaceColor),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "안전 모니터링",
-                style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary
+                text = "감지된 소리",
+                style = MaterialTheme.typography.titleLarge,
+                color = LightTextPrimary
             )
             Spacer(modifier = Modifier.height(12.dp))
 
