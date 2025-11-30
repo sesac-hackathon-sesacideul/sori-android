@@ -179,35 +179,88 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun addConversationItem(text: String) {
-        val emotionLabel = analyzeComplexEmotion(text, currentVoiceLabel, maxRmsDb)
-        val emotionEmoji = when (emotionLabel) {
-            "긍정" -> "😃"
-            "부정" -> "😠"
-            else -> "😐"
-        }
-        
-        val newItem = ConversationItem(
-            id = System.currentTimeMillis(),
+        // Show temporary item while analyzing
+        val tempId = System.currentTimeMillis()
+        val tempItem = ConversationItem(
+            id = tempId,
             speaker = "상대방",
             text = text,
-            emotion = emotionEmoji,
-            emotionLabel = emotionLabel,
+            emotion = "⏳", // Loading
+            emotionLabel = "분석 중...",
             isUser = false,
             timestamp = java.text.SimpleDateFormat("a h:mm", java.util.Locale.KOREA).format(java.util.Date())
         )
         
         val currentHistory = _conversationHistory.value
-        _conversationHistory.value = currentHistory + newItem
+        _conversationHistory.value = currentHistory + tempItem
+
+        // Call GPT for analysis
+        viewModelScope.launch {
+            val emotionLabel = analyzeEmotionWithGPT(text, currentVoiceLabel, maxRmsDb)
+            val emotionEmoji = when (emotionLabel) {
+                "긍정" -> "😃"
+                "부정" -> "😠"
+                else -> "😐"
+            }
+            
+            // Update the item with result
+            val updatedHistory = _conversationHistory.value.map { item ->
+                if (item.id == tempId) {
+                    item.copy(emotion = emotionEmoji, emotionLabel = emotionLabel)
+                } else {
+                    item
+                }
+            }
+            _conversationHistory.value = updatedHistory
+        }
     }
 
-    private fun analyzeComplexEmotion(text: String, voiceLabel: String, rmsDb: Float): String {
+    private suspend fun analyzeEmotionWithGPT(text: String, voiceLabel: String, rmsDb: Float): String {
+        return try {
+            val prompt = """
+                Analyze the emotion of the following spoken text.
+                Context:
+                - Volume: ${String.format("%.1f", rmsDb)}dB (Normal ~5.6, High > 7.0)
+                - Voice Type: $voiceLabel
+                - Text: "$text"
+                
+                Determine if the emotion is '긍정' (Positive), '부정' (Negative), or '중립' (Neutral).
+                Consider that high volume or shouting usually indicates '부정' (Anger), even if the text is neutral.
+                Laughter indicates '긍정'.
+                
+                Return ONLY one word: 긍정, 부정, or 중립.
+            """.trimIndent()
+
+            val request = com.misterjerry.test01.network.ChatCompletionRequest(
+                model = "gpt-3.5-turbo",
+                messages = listOf(
+                    com.misterjerry.test01.network.Message("system", "You are an emotion analysis assistant."),
+                    com.misterjerry.test01.network.Message("user", prompt)
+                )
+            )
+
+            val response = com.misterjerry.test01.network.RetrofitClient.openAIService.createChatCompletion(request)
+            val content = response.choices.firstOrNull()?.message?.content?.trim() ?: "중립"
+            
+            // Basic validation to ensure we get one of the expected labels
+            when {
+                content.contains("긍정") -> "긍정"
+                content.contains("부정") -> "부정"
+                else -> "중립"
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainViewModel", "GPT Analysis Error", e)
+            // Fallback to local logic in case of network error
+            analyzeComplexEmotionFallback(text, voiceLabel, rmsDb)
+        }
+    }
+
+    private fun analyzeComplexEmotionFallback(text: String, voiceLabel: String, rmsDb: Float): String {
         // 1. Voice Class Analysis (YAMNet)
         if (voiceLabel in listOf("Laughter", "Giggle", "Chuckle")) return "긍정"
         if (voiceLabel in listOf("Yell", "Shout", "Screaming", "Cry", "Sob")) return "부정"
 
         // 2. Volume Analysis (RMS)
-        // Heuristic: If volume is high (> 7.0), consider it negative unless text is explicitly positive.
-        // Adjusted to 7.0f based on user data (Soft: ~5.6, Shouted: ~8.3).
         if (rmsDb > 7.0f) { 
             if (!isTextPositive(text)) return "부정"
         }
