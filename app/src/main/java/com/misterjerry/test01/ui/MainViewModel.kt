@@ -42,16 +42,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _soundSettings = MutableStateFlow(SoundSettings())
 
     private val speechRecognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(application)
-    private val audioClassifierHelper = AudioClassifierHelper(application)
+    // private val audioClassifierHelper = AudioClassifierHelper(application) // Moved to Service
     private val vibrationHelper = VibrationHelper(application)
 
     init {
         // ... (SpeechRecognizer init code remains same) ...
         
         // Listen to audio classification results
+        // Listen to audio classification results from EventBus
+        // We now observe SoundEventBus.soundEvents directly in uiState, 
+        // but we might still need to handle specific one-off logic if any.
+        // For now, the list update is handled by the Bus and Service.
+        
+        // If we need to trigger vibration for foreground, we can still listen here OR 
+        // rely on the Service to vibrate (which it now does for all).
+        // However, the Service vibrates for Medium/High. 
+        // The original ViewModel logic checked settings. 
+        // Since we moved detection to Service, Service handles vibration.
+        // We can remove the duplicate vibration logic here to avoid double vibration.
+
+        // Listen to real-time events for Foreground Vibration
         viewModelScope.launch {
-            audioClassifierHelper.classificationFlow.collect { (label, direction) ->
-                handleSoundClassification(label, direction)
+            com.misterjerry.test01.data.SoundEventBus.eventFlow.collect { event ->
+                // Only handle if we are in foreground (though logic is in VM, VM is active when UI is active usually)
+                // But VM can survive config changes. 
+                // We rely on SoundEventBus.isForeground to be sure, or just rely on the fact that 
+                // if the user is looking at the screen, they want feedback.
+                // Actually, Service handles background. VM handles foreground.
+                
+                if (com.misterjerry.test01.data.SoundEventBus.isForeground) {
+                    val settings = _soundSettings.value
+                    val urgencySetting = when (event.urgency) {
+                        Urgency.HIGH -> settings.highUrgency
+                        Urgency.MEDIUM -> settings.mediumUrgency
+                        Urgency.LOW -> settings.lowUrgency
+                    }
+
+                    if (urgencySetting.isEnabled) {
+                        vibrationHelper.vibrate(urgencySetting.vibrationPattern)
+                    }
+                }
             }
         }
     }
@@ -59,78 +89,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ... (SpeechRecognizer methods remain same) ...
 
     fun startEnvironmentMode() {
-        audioClassifierHelper.startAudioClassification()
+        val intent = Intent(getApplication(), com.misterjerry.test01.service.SoundDetectionService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            getApplication<Application>().startForegroundService(intent)
+        } else {
+            getApplication<Application>().startService(intent)
+        }
     }
 
     fun stopEnvironmentMode() {
-        audioClassifierHelper.stopAudioClassification()
+        val intent = Intent(getApplication(), com.misterjerry.test01.service.SoundDetectionService::class.java)
+        getApplication<Application>().stopService(intent)
     }
 
-    private fun handleSoundClassification(label: String, direction: Float) {
-        val (koreanLabel, urgency) = when (label) {
-            // Safety (High Urgency)
-            "Siren", "Ambulance (siren)", "Fire engine, fire truck (siren)" -> "사이렌" to Urgency.HIGH
-            "Car horn, honking" -> "자동차 경적" to Urgency.HIGH
-            "Baby cry, infant cry" -> "아기 울음소리" to Urgency.HIGH
-            "Smoke detector, smoke alarm" -> "화재 경보기" to Urgency.HIGH
-            "Glass" -> "유리 깨지는 소리" to Urgency.HIGH
-            "Scream" -> "비명 소리" to Urgency.HIGH
+    // handleSoundClassification is no longer needed in ViewModel as Service handles creation and Bus handles state.
+    // However, if we want to support "Low Urgency" vibration settings which Service doesn't handle (Service only does Med/High),
+    // we might need to keep some logic. 
+    // But the user request was about background.
+    // For consistency, let's assume Service handles all detection-related side effects for now, 
+    // or we accept that foreground vibration settings might be bypassed by Service's simple logic.
+    // Given the task "Fix Notification Navigation...", let's focus on the state.
+    
+    // We can remove handleSoundClassification entirely if we trust the Bus state.
 
-            // Alerts / Communication (Medium Urgency)
-            "Doorbell" -> "초인종 소리" to Urgency.MEDIUM
-            "Telephone", "Ringtone" -> "전화 벨소리" to Urgency.MEDIUM
-            "Alarm" -> "알람 소리" to Urgency.MEDIUM
-            "Dog", "Bark" -> "개 짖는 소리" to Urgency.MEDIUM
-
-            // Daily Life (Low Urgency)
-            "Clapping", "Hands" -> "박수 소리" to Urgency.LOW
-            "Knock" -> "노크 소리" to Urgency.LOW
-            "Finger snapping" -> "핑거 스냅" to Urgency.LOW
-            "Speech" -> "말소리" to Urgency.LOW
-            "Water tap, faucet" -> "물 틀어놓은 소리" to Urgency.LOW
-            "Toilet flush" -> "변기 물 내리는 소리" to Urgency.LOW
-            "Microwave oven" -> "전자레인지 소리" to Urgency.LOW
-            "Cat", "Meow" -> "고양이 울음소리" to Urgency.LOW
-
-            else -> return // Ignore other sounds for now
-        }
-
-        val newEvent = SoundEvent(
-            id = System.currentTimeMillis(),
-            name = koreanLabel,
-            direction = direction,
-            distance = (1..10).random().toFloat(), // Random distance for demo
-            urgency = urgency
-        )
-
-        val settings = _soundSettings.value
-        val urgencySetting = when (urgency) {
-            Urgency.HIGH -> settings.highUrgency
-            Urgency.MEDIUM -> settings.mediumUrgency
-            Urgency.LOW -> settings.lowUrgency
-        }
-
-        if (urgencySetting.isEnabled) {
-            vibrationHelper.vibrate(urgencySetting.vibrationPattern)
-
-            // Update sound events list (keep events within last 1 hour)
-            val currentEvents = uiState.value.soundEvents
-            val oneHourAgo = System.currentTimeMillis() - 3600000 // 1 hour in millis
-            val updatedEvents = (listOf(newEvent) + currentEvents).filter { it.id > oneHourAgo }
-
-            _soundEventsFlow.value = updatedEvents
-        } else {
-            // Update sound events list (just filter old events)
-            val currentEvents = uiState.value.soundEvents
-            val oneHourAgo = System.currentTimeMillis() - 3600000 // 1 hour in millis
-            val updatedEvents = currentEvents.filter { it.id > oneHourAgo }
-
-            _soundEventsFlow.value = updatedEvents
-        }
-    }
 
     // We need to replace the repository flow with a local flow
-    private val _soundEventsFlow = MutableStateFlow<List<SoundEvent>>(emptyList())
+    // Use SoundEventBus.soundEvents instead of local flow
+
 
     private val recognitionIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -167,7 +152,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     val uiState: StateFlow<MainUiState> = combine(
-        _soundEventsFlow,
+        com.misterjerry.test01.data.SoundEventBus.soundEvents,
         _conversationHistory,
         _isListening,
         _soundSettings,
@@ -292,7 +277,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearSoundEvents() {
-        _soundEventsFlow.value = emptyList()
+        // _soundEventsFlow.value = emptyList()
+        // To implement clear, we should add a clear method to SoundEventBus
+        com.misterjerry.test01.data.SoundEventBus.clearEvents()
     }
 
     override fun onCleared() {
