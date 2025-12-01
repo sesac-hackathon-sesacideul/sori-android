@@ -195,8 +195,12 @@ fun ConversationBubble(item: ConversationItem) {
                 // Determine colors based on emotion (hoisted for border usage)
                 val (emotionIcon, containerColor, contentColor) = if (!item.isUser && !item.isLoading) {
                     when (item.emotionLabel) {
-                        "긍정" -> Triple(R.drawable.icon_positive, Color(0xFFE3F2FD), Color(0xFF1976D2)) // Blue
+                        "긍정" -> Triple(R.drawable.icon_positive, Color(0xFFE8F5E9), Color(0xFF2E7D32)) // Green
                         "부정" -> Triple(R.drawable.icon_negative, Color(0xFFFFEBEE), Color(0xFFD32F2F)) // Red
+                        "놀람" -> Triple(R.drawable.icon_neutrality, Color(0xFFFFF3E0), Color(0xFFE65100)) // Orange
+                        "슬픔" -> Triple(R.drawable.icon_neutrality, Color(0xFFE8EAF6), Color(0xFF3949AB)) // Indigo
+                        "공포" -> Triple(R.drawable.icon_neutrality, Color(0xFFF3E5F5), Color(0xFF7B1FA2)) // Purple
+                        "걱정" -> Triple(R.drawable.icon_neutrality, Color(0xFFFFF8E1), Color(0xFFFF8F00)) // Amber
                         else -> Triple(R.drawable.icon_neutrality, Color(0xFFF5F5F5), Color(0xFF616161)) // Gray
                     }
                 } else {

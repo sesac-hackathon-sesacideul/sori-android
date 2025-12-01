@@ -220,6 +220,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val emotionEmoji = when (emotionLabel) {
                 "긍정" -> "😃"
                 "부정" -> "😠"
+                "놀람" -> "😲"
+                "슬픔" -> "😢"
+                "공포" -> "😨"
+                "걱정" -> "😟"
                 else -> "😐"
             }
 
@@ -241,7 +245,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun analyzeEmotionWithGpt(text: String): String {
         return try {
-            val prompt = "다음 텍스트의 감정을 분석해서 '긍정', '부정', '중립' 중 하나로만 대답해줘. 텍스트: $text"
+            val prompt = "다음 텍스트의 감정을 분석해서 '긍정', '부정', '중립', '놀람', '슬픔', '공포', '걱정' 중 하나로만 대답해줘. 텍스트: $text"
             val request = com.misterjerry.test01.data.api.ChatRequest(
                 messages = listOf(
                     com.misterjerry.test01.data.api.Message(role = "user", content = prompt)
@@ -251,7 +255,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val content = response.choices.firstOrNull()?.message?.content?.trim() ?: "중립"
             
             // Validate response just in case
-            if (content in listOf("긍정", "부정", "중립")) content else "중립"
+            if (content in listOf("긍정", "부정", "중립", "놀람", "슬픔", "공포", "걱정")) content else "중립"
         } catch (e: Exception) {
             e.printStackTrace()
             // Fallback to heuristic analysis
@@ -263,6 +267,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return when {
             text.contains("화나") || text.contains("짜증") -> "부정"
             text.contains("행복") || text.contains("좋아") || text.contains("사랑") -> "긍정"
+            text.contains("놀라") || text.contains("헉") -> "놀람"
+            text.contains("슬퍼") || text.contains("우울") -> "슬픔"
+            text.contains("무서") || text.contains("공포") -> "공포"
+            text.contains("걱정") || text.contains("불안") || text.contains("근심") -> "걱정"
             else -> "중립"
         }
     }
