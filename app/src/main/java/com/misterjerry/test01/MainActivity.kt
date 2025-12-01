@@ -24,4 +24,13 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    override fun onResume() {
+        super.onResume()
+        com.misterjerry.test01.data.SoundEventBus.isForeground = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        com.misterjerry.test01.data.SoundEventBus.isForeground = false
+    }
 }
