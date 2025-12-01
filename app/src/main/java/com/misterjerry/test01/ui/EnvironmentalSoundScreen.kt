@@ -74,6 +74,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.HorizontalDivider
 
 @Composable
 fun EnvironmentalSoundScreen(viewModel: MainViewModel = viewModel()) {
@@ -203,13 +204,13 @@ fun SoundSettingsDialog(
                     setting = highSetting,
                     onSettingChange = { highSetting = it }
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.LightGray)
                 UrgencySettingItem(
                     title = "주의 소리",
                     setting = mediumSetting,
                     onSettingChange = { mediumSetting = it }
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.LightGray)
                 UrgencySettingItem(
                     title = "일상 소리",
                     setting = lowSetting,
