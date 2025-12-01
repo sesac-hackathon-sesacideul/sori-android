@@ -204,13 +204,13 @@ fun SoundSettingsDialog(
                     setting = highSetting,
                     onSettingChange = { highSetting = it }
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.LightGray)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFF0F0F0))
                 UrgencySettingItem(
                     title = "주의 소리",
                     setting = mediumSetting,
                     onSettingChange = { mediumSetting = it }
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.LightGray)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFF0F0F0))
                 UrgencySettingItem(
                     title = "일상 소리",
                     setting = lowSetting,
@@ -240,7 +240,7 @@ fun SoundSettingsDialog(
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(contentColor = NotificationAccent)
+                colors = ButtonDefaults.textButtonColors(contentColor = Color.Gray)
             ) {
                 Text("취소")
             }
