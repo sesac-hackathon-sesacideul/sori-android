@@ -1,6 +1,7 @@
 package com.misterjerry.test01.util
 
 import com.misterjerry.test01.data.Urgency
+import com.misterjerry.test01.data.VibrationPattern
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
@@ -16,34 +17,35 @@ class VibrationHelper(context: Context) {
         context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     }
 
-    fun vibrate(urgency: Urgency) {
+    fun vibrate(pattern: VibrationPattern) {
+        if (pattern == VibrationPattern.NONE) return
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val effect = when (urgency) {
-                Urgency.HIGH -> {
-                    // 다급한 패턴: 0.2초 진동, 0.1초 대기, 0.2초 진동, 강도 최대
+            val effect = when (pattern) {
+                VibrationPattern.DEFAULT -> {
+                    // 기본: 0.2초 진동, 0.1초 대기, 0.2초 진동 (다급함/강조) - 기존 HIGH 패턴 유사
                     val timings = longArrayOf(0, 200, 100, 200)
                     val amplitudes = intArrayOf(0, 255, 0, 255)
                     VibrationEffect.createWaveform(timings, amplitudes, -1)
                 }
-                Urgency.MEDIUM -> {
-                    // 주의 패턴: 0.3초 진동, 강도 중간
-                    VibrationEffect.createOneShot(300, 150)
+                VibrationPattern.FAST -> {
+                    // 빠르게: 0.1초 진동, 0.1초 대기, 0.1초 진동
+                    val timings = longArrayOf(0, 100, 100, 100)
+                    val amplitudes = intArrayOf(0, 200, 0, 200)
+                    VibrationEffect.createWaveform(timings, amplitudes, -1)
                 }
-                Urgency.LOW -> {
-                    // 일상 패턴: 0.1초 짧은 진동, 강도 약함
-                    VibrationEffect.createOneShot(100, 50)
-                }
+                VibrationPattern.NONE -> null // Should not happen due to early return
             }
-            vibrator.vibrate(effect)
+            effect?.let { vibrator.vibrate(it) }
         } else {
             @Suppress("DEPRECATION")
-            val pattern = when (urgency) {
-                Urgency.HIGH -> longArrayOf(0, 200, 100, 200)
-                Urgency.MEDIUM -> longArrayOf(0, 300)
-                Urgency.LOW -> longArrayOf(0, 100)
+            val wavePattern = when (pattern) {
+                VibrationPattern.DEFAULT -> longArrayOf(0, 200, 100, 200)
+                VibrationPattern.FAST -> longArrayOf(0, 100, 100, 100)
+                VibrationPattern.NONE -> null
             }
             // createWaveform이 아닌 구형 API에서는 pattern 사용 시 repeat index 필요 (-1: 반복 없음)
-            vibrator.vibrate(pattern, -1)
+            wavePattern?.let { vibrator.vibrate(it, -1) }
         }
     }
 }
