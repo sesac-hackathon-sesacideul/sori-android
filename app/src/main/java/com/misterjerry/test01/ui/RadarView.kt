@@ -17,6 +17,13 @@ import com.misterjerry.test01.data.Urgency
 import com.misterjerry.test01.ui.theme.ErrorColor
 import com.misterjerry.test01.ui.theme.SafeColor
 import com.misterjerry.test01.ui.theme.WarningColor
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.getValue
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -27,11 +34,33 @@ fun RadarView(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
 
+    // Animation for the scanning wave
+    val infiniteTransition = rememberInfiniteTransition(label = "RadarWave")
+    val waveRadiusRatio by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "WaveRadius"
+    )
+
     Box(modifier = modifier.aspectRatio(1f)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val center = center
             val radius = size.minDimension / 2
             val maxDistance = 10.0f // Max distance to display on radar (e.g., 10 meters)
+
+            // Draw scanning wave
+            val currentWaveRadius = radius * waveRadiusRatio
+            val waveAlpha = 1f - waveRadiusRatio // Fade out as it expands
+            
+            drawCircle(
+                color = primaryColor.copy(alpha = waveAlpha * 0.5f), // Adjust base opacity as needed
+                radius = currentWaveRadius,
+                style = Stroke(width = 4.dp.toPx())
+            )
 
             // Draw concentric circles (Grid)
             val circles = 3
