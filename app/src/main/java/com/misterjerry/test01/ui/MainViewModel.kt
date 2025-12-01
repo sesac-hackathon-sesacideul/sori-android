@@ -221,12 +221,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             
             // Validate response just in case
             if (content in listOf("긍정", "부정", "중립")) content else "중립"
-        } catch (e: retrofit2.HttpException) {
-            e.printStackTrace()
-            "에러: ${e.code()}"
         } catch (e: Exception) {
             e.printStackTrace()
-            "에러: ${e.message}"
+            // Fallback to heuristic analysis
+            analyzeEmotion(text)
+        }
+    }
+
+    private fun analyzeEmotion(text: String): String {
+        return when {
+            text.contains("화나") || text.contains("짜증") -> "부정"
+            text.contains("행복") || text.contains("좋아") || text.contains("사랑") -> "긍정"
+            else -> "중립"
         }
     }
 
