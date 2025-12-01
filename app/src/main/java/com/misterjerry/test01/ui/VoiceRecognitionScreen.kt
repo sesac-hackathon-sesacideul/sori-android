@@ -71,6 +71,7 @@ fun VoiceRecognitionScreen(viewModel: MainViewModel = viewModel()) {
     )
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -88,8 +89,8 @@ fun VoiceRecognitionScreen(viewModel: MainViewModel = viewModel()) {
                         }
                     }
                 },
-                containerColor = if (uiState.isListening) Color.Red else MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                containerColor = if (uiState.isListening) Color(0xFFFFEBEE) else Color(0xFFE3F2FD), // Pastel Red / Pastel Blue
+                contentColor = if (uiState.isListening) Color(0xFFD32F2F) else Color(0xFF1976D2) // Dark Red / Dark Blue
             ) {
                 Icon(
                     imageVector = if (uiState.isListening) Icons.Default.Stop else Icons.Default.Mic,
@@ -191,6 +192,17 @@ fun ConversationBubble(item: ConversationItem) {
                 horizontalAlignment = if (item.isUser) Alignment.End else Alignment.Start,
                 modifier = Modifier.weight(1f, fill = false) // Allow bubble to not stretch full width if short
             ) {
+                // Determine colors based on emotion (hoisted for border usage)
+                val (emotionIcon, containerColor, contentColor) = if (!item.isUser && !item.isLoading) {
+                    when (item.emotionLabel) {
+                        "긍정" -> Triple(R.drawable.icon_positive, Color(0xFFE3F2FD), Color(0xFF1976D2)) // Blue
+                        "부정" -> Triple(R.drawable.icon_negative, Color(0xFFFFEBEE), Color(0xFFD32F2F)) // Red
+                        else -> Triple(R.drawable.icon_neutrality, Color(0xFFF5F5F5), Color(0xFF616161)) // Gray
+                    }
+                } else {
+                    Triple(0, Color.Transparent, Color.Gray) // Default/Placeholder
+                }
+
                 // Bubble
                 Box(
                     modifier = Modifier
@@ -200,7 +212,7 @@ fun ConversationBubble(item: ConversationItem) {
                         )
                         .border(
                             width = 1.dp,
-                            color = if (item.isUser) Color.Transparent else Color(0xFFE0E0E0),
+                            color = if (item.isUser) Color.Transparent else if (item.isLoading) Color(0xFFE0E0E0) else contentColor,
                             shape = RoundedCornerShape(16.dp)
                         )
                         .padding(12.dp)
@@ -208,46 +220,61 @@ fun ConversationBubble(item: ConversationItem) {
                     Column {
                         if (!item.isUser) {
                             // Emotion Header (Icon + Label)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp)
-                            ) {
-                                val emotionIcon = when (item.emotionLabel) {
-                                    "긍정" -> R.drawable.icon_positive
-                                    "부정" -> R.drawable.icon_negative
-                                    else -> R.drawable.icon_neutrality
-                                }
-                                
-                                Icon(
-                                    painter = painterResource(id = emotionIcon),
-                                    contentDescription = item.emotionLabel,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = Color.Unspecified
-                                )
-                                
-                                // Text is now pushed to the end due to SpaceBetween
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "gpt반응 : ${item.emotionLabel}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.Gray,
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    )
-                                    
+                            if (item.isLoading) {
+                                // Skeleton UI
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp)
+                                ) {
+                                    // Skeleton Icon
                                     Box(
                                         modifier = Modifier
-                                            .background(Color(0xFFE0E0E0), RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = item.emotionLabel,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.Black
+                                            .size(24.dp)
+                                            .background(Color.LightGray, CircleShape)
+                                    )
+                                    
+                                    // Skeleton Text
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(80.dp)
+                                                .height(16.dp)
+                                                .background(Color.LightGray, RoundedCornerShape(4.dp))
                                         )
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = emotionIcon),
+                                        contentDescription = item.emotionLabel,
+                                        modifier = Modifier.size(24.dp),
+                                        tint = contentColor
+                                    )
+                                    
+                                    // Text is now pushed to the end due to SpaceBetween
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(containerColor, RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = item.emotionLabel,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = contentColor
+                                            )
+                                        }
                                     }
                                 }
                             }

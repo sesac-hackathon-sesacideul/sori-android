@@ -11,7 +11,8 @@ data class ConversationItem(
     val emotion: String, // Emojis: 😠, 😃, 😐
     val emotionLabel: String, // Text: 화남, 기쁨, 평범
     val isUser: Boolean = false,
-    val timestamp: String = "" // e.g., "오후 07:36"
+    val timestamp: String = "", // e.g., "오후 07:36"
+    val isLoading: Boolean = false
 )
 
 class ConversationRepository {
