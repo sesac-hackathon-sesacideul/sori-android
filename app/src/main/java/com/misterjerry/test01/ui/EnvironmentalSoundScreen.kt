@@ -66,6 +66,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.misterjerry.test01.ui.theme.WarningColor
+import com.misterjerry.test01.ui.theme.NotificationAccent
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.foundation.clickable
 
 @Composable
 fun EnvironmentalSoundScreen(viewModel: MainViewModel = viewModel()) {
@@ -185,6 +193,7 @@ fun SoundSettingsDialog(
     var lowSetting by remember { mutableStateOf(currentSettings.lowUrgency) }
 
     AlertDialog(
+        containerColor = Color.White,
         onDismissRequest = onDismiss,
         title = { Text(text = "알림 설정") },
         text = {
@@ -218,13 +227,20 @@ fun SoundSettingsDialog(
                             lowUrgency = lowSetting
                         )
                     )
-                }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NotificationAccent,
+                    contentColor = Color.Black
+                )
             ) {
                 Text("저장")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = NotificationAccent)
+            ) {
                 Text("취소")
             }
         }
@@ -246,27 +262,56 @@ fun UrgencySettingItem(
             Text(text = title, fontWeight = FontWeight.Bold)
             Switch(
                 checked = setting.isEnabled,
-                onCheckedChange = { onSettingChange(setting.copy(isEnabled = it)) }
+                onCheckedChange = { onSettingChange(setting.copy(isEnabled = it)) },
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = NotificationAccent,
+                    checkedThumbColor = Color.White
+                )
             )
         }
         
         if (setting.isEnabled) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = "진동 패턴", style = MaterialTheme.typography.bodyMedium)
-            Row(modifier = Modifier.fillMaxWidth()) {
-                VibrationPattern.values().forEach { pattern ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
-                        RadioButton(
-                            selected = setting.vibrationPattern == pattern,
-                            onClick = { onSettingChange(setting.copy(vibrationPattern = pattern)) }
-                        )
-                        Text(
-                            text = pattern.label,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(start = 4.dp)
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            var expanded by remember { mutableStateOf(false) }
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Color.LightGray, RoundedCornerShape(4.dp))
+                    .clickable { expanded = true }
+                    .padding(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = setting.vibrationPattern.label,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Dropdown",
+                        tint = Color.Gray
+                    )
+                }
+                
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(Color.White)
+                ) {
+                    VibrationPattern.values().forEach { pattern ->
+                        DropdownMenuItem(
+                            text = { Text(text = pattern.label) },
+                            onClick = {
+                                onSettingChange(setting.copy(vibrationPattern = pattern))
+                                expanded = false
+                            }
                         )
                     }
                 }
