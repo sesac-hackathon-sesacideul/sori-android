@@ -1,19 +1,14 @@
-# UI
 
-### 기획서상 UI
-<img width="1786" height="915" alt="UI-" src="https://github.com/user-attachments/assets/4463c7c5-44e6-4e92-a8e7-8347a0df9620" />
 
-### 실제구현 UI
-<img width="8234" height="2523" alt="Component 1" src="https://github.com/user-attachments/assets/7f69c0e7-57a4-420c-bf94-2a4a49a2673c" />
 
-**청각 장애인을 위한 실시간 대화 통역 및 환경 소리 시각화 비서**
-> "소리를 보다, 마음을 듣다."
 
 ## 📖 프로젝트 개요 (Project Overview)
 
 **Sori**는 청각 장애인 및 난청인이 일상생활에서 겪는 **소리 정보의 부재(위험 상황, 대화 맥락)** 를 AI 기술로 해결하여 안전하고 독립적인 삶을 지원하는 안드로이드 애플리케이션입니다.
+> "소리를 보다, 마음을 듣다."
 
 비언어적 소리(자동차 경적, 사이렌 등)를 시각적으로 인지할 수 있도록 돕고, 대화 중 상대방의 음성을 텍스트로 변환하는 것을 넘어 감정까지 분석하여 원활한 소통을 지원합니다.
+**청각 장애인을 위한 실시간 대화 통역 및 환경 소리 시각화 비서**
 
 ### 🎯 개발 목표
 *   **안전 사고 예방**: 위험 소리의 방향과 거리를 시각화하여 즉각적인 대처 가능
@@ -68,6 +63,16 @@
 
 ---
 
+## UI
+
+### 기획서상 UI
+<img width="1786" height="915" alt="UI-" src="https://github.com/user-attachments/assets/4463c7c5-44e6-4e92-a8e7-8347a0df9620" />
+
+### 실제구현 UI
+<img width="8234" height="2523" alt="Component 1" src="https://github.com/user-attachments/assets/7f69c0e7-57a4-420c-bf94-2a4a49a2673c" />
+
+---
+
 ## 💻 기술 스택 (Tech Stack)
 
 | Category | Technology |
@@ -105,6 +110,7 @@ OPENAI_API_KEY=sk-your-api-key-here
 ---
 
 ## 📱 사용 가이드 (Usage Guide)
+
 
 ### 메인 화면
 *   앱 실행 시 **'환경 소리 모드'** 와 **'음성 인식 모드'** 중 원하는 기능을 선택할 수 있습니다.
